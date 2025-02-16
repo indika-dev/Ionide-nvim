@@ -202,7 +202,7 @@ local function create_manager(config)
 	end)
 	function manager.try_add(bufnr)
 		bufnr = bufnr or api.nvim_get_current_buf()
-		if api.nvim_buf_get_option(bufnr, "buftype") == "nofile" then
+		if vim.bo[bufnr].buftype == "nofile" then
 			return
 		end
 		local root_dir = get_root_dir(api.nvim_buf_get_name(bufnr), bufnr)
@@ -213,7 +213,7 @@ local function create_manager(config)
 	end
 	function manager.try_add_wrapper(bufnr)
 		bufnr = bufnr or api.nvim_get_current_buf()
-		local buftype = api.nvim_buf_get_option(bufnr, "filetype")
+		local buftype = vim.bo[bufnr].filetype
 		if buftype == "fsharp" then
 			manager.try_add(bufnr)
 			return
@@ -242,6 +242,16 @@ function M._setup_buffer(client_id, bufnr)
 end
 
 function M.setup(config)
+	-- " load configurations
+	-- call fsharp#loadConfig()
+	--
+	-- " auto setup nvim-lsp
+	-- let s:did_lsp_setup = 0
+	-- if g:fsharp#backend == 'nvim' && g:fsharp#lsp_auto_setup && !s:did_lsp_setup
+	--     let s:did_lsp_setup = 1
+	--     lua ionide.setup{}
+	-- endif
+
 	local new_config = inject_codelens_refresh(config)
 	if lspconfig_is_present then
 		return delegate_to_lspconfig(new_config)
