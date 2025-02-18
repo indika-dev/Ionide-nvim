@@ -242,6 +242,7 @@ function M._setup_buffer(client_id, bufnr)
 end
 
 function M.setup(config)
+	fn["fsharp#loadConfig"]()
 	-- " load configurations
 	-- call fsharp#loadConfig()
 	--
