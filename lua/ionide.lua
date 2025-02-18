@@ -35,6 +35,28 @@ M.get_from_mason_registry = function(package_name, key_prefix)
 	return result
 end
 
+local request = function(bufnr, method, params, handler)
+  local clients = vim.lsp.get_clients({ bufnr = bufnr, name = "fsautocomplete" })
+  local _, client = next(clients)
+  if not client then
+    vim.notify("No LSP client with name `fsautocomplete` available", vim.log.levels.WARN)
+    return
+  end
+  local co
+  if not handler then
+    co = coroutine.running()
+    if co then
+      handler = function(err, result, ctx)
+        coroutine.resume(co, err, result, ctx)
+      end
+    end
+  end
+  client.request(method, params, handler, bufnr)
+  if co then
+    return coroutine.yield()
+  end
+end
+
 M.setup = function(config)
 	if initialized then
 		return
@@ -85,5 +107,41 @@ M.init_lsp_commands = function()
 		end
 	end
 end
+
+local function signature(filePath, line, character, cont, outer_ctx)
+  local bufnr = assert(outer_ctx.bufnr, '`outer_ctx` must have bufnr property')
+  local params = { textDocument = { uri = vim.uri_from_fname(filePath) }, position = { line = line, character = character } }
+require("ionide.async").run(function()
+     local err, result = request(bufnr, 'fsharp/signature', params)
+    if err then
+      print("Could not execute fsharp/signature: " .. err.message)
+      return
+    end
+    if not result then
+      return
+    end
+    if result.exists then
+      local prompt = string.format(
+        "Method 'toString()' already exists in '%s'. Do you want to replace it?",
+        result.type
+      )
+      local choice = ui.pick_one({"Replace", "Cancel"}, prompt, tostring)
+      if choice == "Cancel" then
+        return
+      end
+    end
+    local fields = ui.pick_many(result.fields, 'Include item in toString?', function(x)
+      return string.format('%s: %s', x.name, x.type)
+    end)
+    local e, edit = request(bufnr, 'java/generateToString', { context = params; fields = fields; })
+    if e then
+      print("Could not execute java/generateToString: " .. e.message)
+    elseif edit then
+      vim.lsp.util.apply_workspace_edit(edit, offset_encoding)
+    end
+  end)
+end
+    return s:call('fsharp/signature', s:TextDocumentPositionParams(a:filePath, a:line, a:character), a:cont)
+endfunction
 
 return M
